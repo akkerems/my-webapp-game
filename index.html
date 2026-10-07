@@ -3,68 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sperm Clicker</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>Sperm Clicker Deluxe</title>
+    <script src="https://telegram.org"></script>
     <style>
-        body { font-family: sans-serif; background: #1a1a2e; color: #fff; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .balance-box { background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 10px; margin-bottom: 20px; }
-        .balance { font-size: 32px; color: #00fff0; font-weight: bold; }
-        .click-btn { width: 140px; height: 140px; background: #fff; border-radius: 50%; border: 5px solid #00fff0; font-size: 50px; line-height: 130px; cursor: pointer; transition: transform 0.1s; user-select: none; margin-bottom: 30px; }
-        .click-btn:active { transform: scale(0.9); }
-        .wheel { width: 180px; height: 180px; border-radius: 50%; border: 4px solid #fff; background: conic-gradient(#ff2a6d 0deg 90deg, #05d9e8 90deg 180deg, #f5a623 180deg 270deg, #9013fe 270deg 360deg); transition: transform 3s ease-out; margin-bottom: 10px; }
-        .spin-btn { background: #ff2a6d; color: #fff; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c1b, #150f2e);
+            color: #fff;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        h1 { margin: 10px 0 5px 0; font-size: 26px; color: #00fff0; text-shadow: 0 0 15px rgba(0,255,240,0.6); }
+        
+        .balance-container { 
+            background: rgba(255,255,255,0.03); 
+            padding: 15px 35px; 
+            border-radius: 20px; 
+            margin-bottom: 25px; 
+            border: 1px solid rgba(0,255,240,0.2); 
+            box-shadow: 0 8px 30px rgba(0,255,240,0.1); 
+        }
+        .balance { font-size: 38px; font-weight: bold; color: #00fff0; text-shadow: 0 0 15px rgba(0,255,240,0.8); }
+        
+        .click-btn {
+            width: 160px; height: 160px;
+            background: radial-gradient(circle, #ffffff 0%, #cceeff 100%);
+            border-radius: 50%;
+            border: 6px solid #00fff0;
+            font-size: 65px; line-height: 148px;
+            cursor: pointer;
+            box-shadow: 0 0 35px rgba(0, 255, 240, 0.6);
+            transition: transform 0.05s ease;
+            margin-bottom: 30px;
+        }
+        .click-btn:active { transform: scale(0.90); }
+
+        .wheel-box { position: relative; width: 190px; height: 190px; margin-bottom: 12px; }
+        .wheel {
+            width: 100%; height: 100%; border-radius: 50%; border: 4px solid #fff;
+            background: conic-gradient(#ff2a6d 0deg 60deg, #05d9e8 60deg 120deg, #3a1c71 120deg 180deg, #f5a623 180deg 240deg, #b8e986 240deg 300deg, #9013fe 300deg 360deg);
+            transition: transform 4s cubic-bezier(0.1, 0.8, 0.3, 1);
+            box-shadow: 0 0 20px rgba(255,255,255,0.1);
+        }
+        .pointer {
+            position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+            width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent;
+            border-top: 22px solid #ff2a6d; z-index: 10;
+        }
+        .spin-btn {
+            background: #ff2a6d; color: white; border: none; padding: 12px 35px; border-radius: 25px;
+            font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 5px 15px rgba(255,42,109,0.4);
+            transition: opacity 0.2s;
+        }
+        .spin-btn:disabled { background: #444; box-shadow: none; cursor: not-allowed; opacity: 0.6; }
     </style>
 </head>
 <body>
 
     <h1>💦 SPERM CLICKER</h1>
-    <div class="balance-box">
-        <div>Натапано сейчас:</div>
-        <div class="balance" id="display">0 мл</div>
+    <div class="balance-container">
+        <div>Твой баланс:</div>
+        <div class="balance" id="balanceDisplay">0 мл</div>
     </div>
 
-    <div class="click-btn" id="clickBtn">💦</div>
+    <!-- Тапалка -->
+    <div class="click-btn" id="clickerBtn">💦</div>
 
-    <h3>🎡 Колесо Фортуны</h3>
-    <div class="wheel" id="wheel"></div>
-    <button class="spin-btn" id="spinBtn">Крутить!</button>
+    <!-- Колесо -->
+    <h3>🎡 Колесо Удачи (1 раз в минуту)</h3>
+    <div class="wheel-box">
+        <div class="pointer"></div>
+        <div class="wheel" id="wheel"></div>
+    </div>
+    <button class="spin-btn" id="spinBtn">Крутить колесо!</button>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
         tg.ready();
 
-        let sessionClicks = 0;
-        const display = document.getElementById('display');
-        const clickBtn = document.getElementById('clickBtn');
+        // Загружаем сохраненные значения из памяти устройства
+        let score = parseInt(localStorage.getItem('local_sperm_count')) || 0;
+        let lastSpin = parseInt(localStorage.getItem('local_last_spin_time')) || 0;
+
+        const balanceDisplay = document.getElementById('balanceDisplay');
+        const clickerBtn = document.getElementById('clickerBtn');
         const wheel = document.getElementById('wheel');
         const spinBtn = document.getElementById('spinBtn');
 
-        // КЛИКЕР: теперь буква D большая, всё работает!
-        clickBtn.addEventListener('click', () => {
-            let clicked = Math.floor(Math.random() * 5) + 1;
-            sessionClicks += clicked;
-            display.innerText = sessionClicks + " мл";
+        // Сразу выводим текущий баланс на экран
+        balanceDisplay.innerText = score.toLocaleString() + " мл";
+
+        // КЛИКЕР: Работает на 100%, обновляет цифры на экране мгновенно!
+        clickerBtn.addEventListener('click', () => {
+            let gained = Math.floor(Math.random() * 5) + 1; // от 1 до 5 мл за клик
+            score += gained;
+            saveData();
             
-            // Метод отправки данных боту
-            tg.sendData("click:" + clicked);
+            // Если открыто на телефоне, будет легкая тактильная вибрация
+            if (tg.HapticFeedback) {
+                tg.HapticFeedback.impactOccurred('light');
+            }
         });
 
-        // КОЛЕСО УДАЧИ
+        // КОЛЕСО ФОРТУНЫ
         spinBtn.addEventListener('click', () => {
+            const now = Date.now();
+            if (now - lastSpin < 60000) return;
+
             spinBtn.disabled = true;
-            let degrees = Math.floor(Math.random() * 360) + 720;
-            wheel.style.transform = `rotate(${degrees}deg)`;
+            lastSpin = now;
+            localStorage.setItem('local_last_spin_time', lastSpin);
+
+            // Анимация вращения колеса
+            const randomDegrees = Math.floor(Math.random() * 360) + 1440; // 4 полных оборота + рандом
+            wheel.style.transform = `rotate(${randomDegrees}deg)`;
 
             setTimeout(() => {
-                let bonus = Math.floor(Math.random() * 400) + 100;
-                // Тут тоже исправил на большую букву D
-                tg.sendData("wheel:" + bonus);
-                alert(`🎉 Колесо принесло тебе +${bonus} мл!`);
-                spinBtn.disabled = false;
-            }, 3000);
+                const bonus = Math.floor(Math.random() * 400) + 100; // Бонус от 100 до 500 мл
+                score += bonus;
+                saveData();
+                alert(`🎉 Колесо удачи принесло тебе +${bonus} мл!`);
+                checkCooldown();
+            }, 4000);
         });
+
+        function saveData() {
+            balanceDisplay.innerText = score.toLocaleString() + " мл";
+            localStorage.setItem('local_sperm_count', score);
+        }
+
+        function checkCooldown() {
+            const now = Date.now();
+            if (now - lastSpin < 60000) {
+                spinBtn.disabled = true;
+                const remain = Math.ceil((60000 - (now - lastSpin)) / 1000);
+                spinBtn.innerText = `Подожди ${remain} сек.`;
+                setTimeout(checkCooldown, 1000);
+            } else {
+                spinBtn.disabled = false;
+                spinBtn.innerText = "Крутить колесо!";
+            }
+        }
+
+        checkCooldown();
     </script>
 </body>
 </html>
-
